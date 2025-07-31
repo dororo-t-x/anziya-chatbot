@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Chat with Anziya 💬</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <h2>👩‍💻 Chat with Anziya</h2>
+  <div id="chatbox"></div>
+  <input id="input" placeholder="Type something..." />
+  <button onclick="send()">Send</button>
+
+  <script>
+    async function send() {
+      const input = document.getElementById("input");
+      const msg = input.value;
+      if (!msg) return;
+
+      const chat = document.getElementById("chatbox");
+      chat.innerHTML += `<p><b>You:</b> ${msg}</p>`;
+      input.value = "";
+
+      const res = await fetch("/ask?msg=" + encodeURIComponent(msg));
+      const text = await res.text();
+      chat.innerHTML += `<p><b>Anziya:</b> ${text}</p>`;
+      chat.scrollTop = chat.scrollHeight;
+    }
+  </script>
+</body>
+</html>
