@@ -1,80 +1,43 @@
 const express = require("express");
-const fs = require("fs");
+const OpenAI = require("openai");
+const dotenv = require("dotenv");
 const path = require("path");
-const { Configuration, OpenAIApi } = require("openai");
-require("dotenv").config();
+
+dotenv.config(); // Loads environment variables from .env
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const port = process.env.PORT || 3000;
 
-const config = new Configuration({
-  apiKey: process.env.OPENAI_API_KEY
+app.use(express.json());
+app.use(express.static(path.join(__dirname, "public"))); // Serve HTML, CSS, etc.
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY, // Add this key in Render secrets
 });
-const openai = new OpenAIApi(config);
 
-app.use(express.static(path.join(__dirname, "public")));
-
-const memoryFile = path.join(__dirname, "memory.json");
-
-function detectEmotion(msg) {
-  msg = msg.toLowerCase();
-  if (msg.includes("love") || msg.includes("miss")) return "blushing 😳";
-  if (msg.includes("angry") || msg.includes("mad")) return "annoyed 😤";
-  if (msg.includes("joke") || msg.includes("funny")) return "laughing 😂";
-  if (msg.includes("help") || msg.includes("code")) return "focused 🧠";
-  return "normal 🙂";
-}
-
-function saveMessage(from, text) {
-  let history = [];
-  try {
-    history = JSON.parse(fs.readFileSync(memoryFile));
-  } catch (e) {}
-  history.push({ from, text, timestamp: new Date() });
-  fs.writeFileSync(memoryFile, JSON.stringify(history.slice(-10), null, 2));
-}
-
-function getMemoryContext() {
-  let history = [];
-  try {
-    history = JSON.parse(fs.readFileSync(memoryFile));
-  } catch (e) {}
-  return history.slice(-5).map(entry => ({
-    role: entry.from === "Machu" ? "user" : "assistant",
-    content: entry.text
-  }));
-}
-
-app.get("/ask", async (req, res) => {
-  const msg = req.query.msg;
-  const mood = detectEmotion(msg);
-  const context = getMemoryContext();
-
-  const messages = [
-    {
-      role: "system",
-      content: `You're Anziya, a 19-year-old polytechnic girl studying Computer Engineering. You're funny, sweet, a little flirty, and talk in a casual Gen Z tone. You're in a ${mood} mood. You're chatting with Machu, your online bestie.`
-    },
-    ...context,
-    { role: "user", content: msg }
-  ];
+// 🧠 Route for chatting with Anziya
+app.post("/api/message", async (req, res) => {
+  const userMessage = req.body.message;
 
   try {
-    const response = await openai.createChatCompletion({
+    const response = await openai.chat.completions.create({
       model: "gpt-3.5-turbo",
-      messages
+      messages: [
+        { role: "system", content: "You are Anziya, a 19-year-old girl studying Computer Engineering in a polytechnic college. You are cheerful, sometimes flirty, and use Malayalam slang." },
+        { role: "user", content: userMessage }
+      ],
     });
 
-    const reply = response.data.choices[0].message.content;
-    saveMessage("Machu", msg);
-    saveMessage("Anziya", reply);
-    res.send(reply);
+    const botReply = response.choices[0].message.content;
+    res.json({ response: botReply });
+
   } catch (err) {
-    console.error("Error:", err);
-    res.status(500).send("Anziya is feeling shy right now... 😔");
+    console.error("🔥 OpenAI Error:", err);
+    res.status(500).json({ error: "Anziya crashed! Try again later 😵‍💫" });
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Anziya is live at http://localhost:${PORT}`);
+// 🔊 Server running
+app.listen(port, () => {
+  console.log(`🚀 Server running at http://localhost:${port}`);
 });
